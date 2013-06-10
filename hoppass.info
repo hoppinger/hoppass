@@ -1,0 +1,4 @@
+name = Hoppass
+description = Compass integration
+
+core = 7.x

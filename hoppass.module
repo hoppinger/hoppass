@@ -1,0 +1,159 @@
+<?php
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function hoppass_element_info_alter(&$type) {
+  array_unshift($type['styles']['#pre_render'], 'hoppass_pre_render');
+}
+
+/**
+ * Pre render callback.
+ */
+function hoppass_pre_render($elements) {
+  _hoppass_process_styles($elements['#items']);
+  return $elements;
+}
+
+/**
+ * Internal function.
+ *
+ * Processes styles array.
+ */
+function _hoppass_process_styles(&$items) {
+  // Figure out the current themes.
+  $_themes = system_get_info('theme');
+  $theme_paths = array();
+  foreach ($_themes as $name => $info) {
+    $theme_paths[drupal_get_path('theme', $name)] = $name;
+  }
+
+  // The path to user files directory, where the generated images and CSS
+  // files will be stored.
+  $public_path = variable_get('file_public_path', conf_path() . '/files');
+
+  // Figure out which themes are using Compass, which files are added and where
+  // the corresponding CSS file will be stored.
+  $enabled_themes = array();
+  $mapping = array();
+  foreach ($items as $key => $info) {
+    // Jump out, if this is not a SCSS file.
+    if (empty($info['type']) || $info['type'] != 'file' || empty($info['data']) || substr($info['data'], -5) != '.scss') {
+      continue;
+    }
+
+    // Figure out which theme the file belongs to.
+    foreach ($theme_paths as $path => $name) {
+      if (substr($info['data'], 0, strlen($path) + 6) == $path . '/scss/') {
+        // Add the theme to the list of themes that should be refreshed.
+        if (!in_array($name, $enabled_themes)) {
+          $enabled_themes[] = $name;
+        }
+
+        // Find the path of the CSS file.
+        $short_path = substr($info['data'], strlen($path) + 6, -5) . '.css';
+        $mapping[$key] = $public_path . '/compass/' . $name . '/stylesheets/' . $short_path;
+
+        continue 2;
+      }
+    }
+  }
+
+  // If no themes are using Compass, we're done.
+  if (empty($enabled_themes)) {
+    return;
+  }
+
+  // Run the themes through the refresher.
+  foreach ($enabled_themes as $_theme) {
+    hoppass_refresh_theme($_theme);
+  }
+
+  // Replace the SCSS path with a CSS path.
+  foreach ($mapping as $key => $path) {
+    $items[$key]['data'] = $path;
+  }
+}
+
+/**
+ * Refresh the generated files for this theme.
+ */
+function hoppass_refresh_theme($_theme) {
+  // Fairly standard static cache / Drupal cache logic.
+  $cache = &drupal_static(__FUNCTION__);
+
+  if (!isset($cache)) {
+    $data = cache_get('hoppass:themes', 'cache');
+    if (isset($data, $data->data) && $data->data) {
+      $cache = $data->data;
+    }
+  }
+
+  if (!isset($cache)) {
+    $cache = array();
+  }
+
+  // If this theme is not registered, refresh and register it.
+  if (!in_array($_theme, $cache)) {
+    $cache[] = $_theme;
+    cache_set('hoppass:themes', $cache, 'cache', CACHE_TEMPORARY);
+    _hoppass_refresh_theme($_theme);
+    return;
+  }
+
+  // If we are not in always refresh mode, jump out.
+  if (!variable_get('hoppass_always_refresh', FALSE)) {
+    return;
+  }
+
+  _hoppass_refresh_theme($_theme);
+}
+
+/**
+ * Internal function.
+ *
+ * Calls compass to refresh the theme.
+ */
+function _hoppass_refresh_theme($_theme) {
+  // Generate a config file.
+  $config_file = _hoppass_generate_config($_theme);
+
+  // Run compass with the generated config file.
+  exec(variable_get('hoppass_compass_bin', 'compass') . " compile -c $config_file");
+
+  // Get rid of the config file.
+  unlink($config_file);
+}
+
+/**
+ * Interal function.
+ *
+ * Generate a compass config file for a theme.
+ */
+function _hoppass_generate_config($_theme) {
+  $path        = drupal_get_path('theme', $_theme);
+  $temp_name   = drupal_tempnam('temporary://', 'file');
+  $public_path = variable_get('file_public_path', conf_path() . '/files');
+  $temp_path   = variable_get('file_temporary_path', file_directory_temp());
+
+  $data = array(
+    'css_dir' => $public_path . '/compass/basic/stylesheets',
+    'sass_dir' => $path . '/scss',
+    'images_dir' => $path . '/images',
+    'fonts_dir' => $path . '/fonts',
+
+    'generated_images_dir' => $public_path . '/compass/basic/images',
+    'http_generated_images_dir' => $public_path . '/compass/basic/images',
+    'cache_path' => $temp_path . '/hoppass-cache/' . md5($path),
+  );
+
+  $result = array();
+  foreach ($data as $key => $value) {
+    $result[] = $key . ' = "' . addslashes($value) . '"';
+  }
+  $result = implode("\n", $result);
+
+  file_put_contents($temp_name, $result);
+
+  return drupal_realpath($temp_name);
+}
