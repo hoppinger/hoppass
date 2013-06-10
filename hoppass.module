@@ -22,7 +22,7 @@ function hoppass_pre_render($elements) {
  */
 function _hoppass_process_styles(&$items) {
   // Figure out the current themes.
-  $_themes = system_get_info('theme');
+  $_themes = list_themes();
   $theme_paths = array();
   foreach ($_themes as $name => $info) {
     $theme_paths[drupal_get_path('theme', $name)] = $name;
