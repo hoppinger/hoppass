@@ -137,13 +137,13 @@ function _hoppass_generate_config($_theme) {
   $temp_path   = variable_get('file_temporary_path', file_directory_temp());
 
   $data = array(
-    'css_dir' => $public_path . '/compass/basic/stylesheets',
+    'css_dir' => $public_path . '/compass/' . $_theme . '/stylesheets',
     'sass_dir' => $path . '/scss',
     'images_dir' => $path . '/images',
     'fonts_dir' => $path . '/fonts',
 
-    'generated_images_dir' => $public_path . '/compass/basic/images',
-    'http_generated_images_dir' => $public_path . '/compass/basic/images',
+    'generated_images_dir' => $public_path . '/compass/' . $_theme . '/images',
+    'http_generated_images_dir' => $public_path . '/compass/' . $_theme . '/images',
     'cache_path' => $temp_path . '/hoppass-cache/' . md5($path),
   );
 
