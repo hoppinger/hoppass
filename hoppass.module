@@ -119,7 +119,12 @@ function _hoppass_refresh_theme($_theme) {
   $config_file = _hoppass_generate_config($_theme);
 
   // Run compass with the generated config file.
-  exec("export GEM_HOME=" .variable_get('hoppass_compass_gem_home', ''). ";" . variable_get('hoppass_compass_bin', 'compass') . " compile -c $config_file --boring --trace 2>&1", $output, $exit_code);
+  if (null !== variable_get('hoppass_compass_gem_home')) {
+    exec("GEM_HOME=" . variable_get('hoppass_compass_gem_home', '') . " " . variable_get('hoppass_compass_bin', 'compass') . " compile -c $config_file --boring --trace 2>&1", $output, $exit_code);
+  }
+  else {
+    exec(variable_get('hoppass_compass_bin', 'compass') . " compile -c $config_file --boring --trace 2>&1", $output, $exit_code);
+  }
   if ($exit_code != 0 && variable_get('hoppass_debug', FALSE)) {
     print "<pre>" . implode("<br />", array_map('check_plain', $output)) . "</pre>";
   }
