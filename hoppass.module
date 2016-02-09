@@ -139,6 +139,9 @@ function _hoppass_refresh_theme($_theme) {
  * Generate a compass config file for a theme.
  */
 function _hoppass_generate_config($_theme) {
+  $themes = list_themes();
+  $theme_object = $themes[$_theme];
+
   $path        = drupal_get_path('theme', $_theme);
   $temp_name   = drupal_tempnam('temporary://', 'file');
   $public_path = variable_get('file_public_path', conf_path() . '/files');
@@ -160,6 +163,15 @@ function _hoppass_generate_config($_theme) {
     $result[] = $key . ' = "' . addslashes($value) . '"';
   }
   $result = implode("\n", $result);
+
+  if (!empty($theme_object->base_themes)) {
+    $imports = array();
+    foreach (array_keys($theme_object->base_themes) as $base_theme) {
+      $imports[] = 'add_import_path \'' . drupal_get_path('theme', $base_theme) . '/scss\'';
+    }
+
+    $result .= "\n\n" . implode("\n", $imports);
+  }
 
   file_put_contents($temp_name, $result);
 
