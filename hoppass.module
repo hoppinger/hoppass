@@ -140,18 +140,33 @@ function _hoppass_refresh_theme($_theme) {
  */
 function _hoppass_generate_config($_theme) {
   $themes = list_themes();
-  $theme_object = $themes[$_theme];
+  
+  $theme_objects = array($themes[$_theme]);
+  if (!empty($theme_objects[0]->base_themes)) {
+    foreach (array_keys($theme_objects[0]->base_themes) as $base_theme) {
+      $theme_objects[] = $themes[$base_theme];
+    }
+  }
 
-  $path        = drupal_get_path('theme', $_theme);
-  $temp_name   = drupal_tempnam('temporary://', 'file');
+  $asset_theme_object = $theme_objects[0];
+  foreach ($theme_objects as $theme_object) {
+    if (!empty($theme_object->info['hoppass_assets'])) {
+      $asset_theme_object = $theme_object;
+      break;
+    }
+  }
+
+  $theme_path = drupal_get_path('theme', $theme_objects[0]->name);
+  $asset_path = drupal_get_path('theme', $asset_theme_object->name);
+
   $public_path = variable_get('file_public_path', conf_path() . '/files');
   $temp_path   = variable_get('file_temporary_path', file_directory_temp());
 
   $data = array(
     'css_dir' => $public_path . '/compass/' . $_theme . '/stylesheets',
-    'sass_dir' => $path . '/scss',
-    'images_dir' => $path . '/images',
-    'fonts_dir' => $path . '/fonts',
+    'sass_dir' => $theme_path . '/scss',
+    'images_dir' => $asset_path . '/images',
+    'fonts_dir' => $asset_path . '/fonts',
 
     'generated_images_dir' => $public_path . '/compass/' . $_theme . '/images',
     'http_generated_images_dir' => $public_path . '/compass/' . $_theme . '/images',
@@ -164,16 +179,16 @@ function _hoppass_generate_config($_theme) {
   }
   $result = implode("\n", $result);
 
-  if (!empty($theme_object->base_themes)) {
-    $imports = array();
-    foreach (array_keys($theme_object->base_themes) as $base_theme) {
-      $imports[] = 'add_import_path \'' . drupal_get_path('theme', $base_theme) . '/scss\'';
-    }
+  $imports = array();
+  foreach (array_slice($theme_objects, 1) as $theme_object) {
+    $imports[] = 'add_import_path \'' . drupal_get_path('theme', $theme_object->name) . '/scss\'';
+  }
 
+  if (!empty($imports)) {
     $result .= "\n\n" . implode("\n", $imports);
   }
 
+  $temp_name = drupal_tempnam('temporary://', 'file');
   file_put_contents($temp_name, $result);
-
   return drupal_realpath($temp_name);
 }
