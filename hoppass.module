@@ -170,7 +170,7 @@ function _hoppass_generate_config($_theme) {
 
     'generated_images_dir' => $public_path . '/compass/' . $_theme . '/images',
     'http_generated_images_dir' => $public_path . '/compass/' . $_theme . '/images',
-    'cache_path' => $temp_path . '/hoppass-cache/' . md5($path),
+    'cache_path' => $temp_path . '/hoppass-cache/' . $_theme,
   );
 
   $result = array();
